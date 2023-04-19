@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox, filedialog
+from tktooltip import ToolTip
 
 
 import os, sys, re, math
@@ -48,23 +49,55 @@ menubar.add_cascade(label="Help", menu=menu0)
 var_edge = IntVar()
 f0 = Frame(win)
 f = LabelFrame(f0,text='Edge')
+ToolTip(f, msg="Set the absorption edge")
 edges = ['K', 'L1', 'L2', 'L3']
 for i in range(4):
     Radiobutton(f,text=edges[i], width=4, variable=var_edge, value=i).pack(side=LEFT)
 f.pack(side=LEFT,padx=10,anchor="w")
+f0.pack(side=TOP)
 
+f0 = Frame(win)
 f = LabelFrame(f0,text='DENSITY')
 d = Entry(f, width=5)
-Label(f, text="d [g/cm^3]", font=('Arial 12'),width=8).pack(side=LEFT, anchor="w")
+ToolTip(d, msg="Put the density of your sample")
+Label(f, text="dens. [g/cm^3]", font=('Arial 12'),width=10).pack(side=LEFT, anchor="w")
 d.insert(0,'{:.1f}'.format(1.0))
 d.pack(side=LEFT)
-f.pack(side=TOP,padx=0,anchor="w")
+f.pack(side=LEFT,padx=0,anchor="w")
+
+
+f = LabelFrame(f0,text='DIAMETER(OPTION)')
+diam = Entry(f, width=5)
+ToolTip(diam, msg="You can set the diameter of your pellet")
+CheckVar = IntVar()
+C1 = Checkbutton(f, text = "", variable = CheckVar, \
+                 onvalue = 1, offvalue = 0, height=2, \
+                 width = 3)
+C1.pack(side=LEFT)
+Label(f, text="diam. [mm]", font=('Arial 12'),width=8).pack(side=LEFT, anchor="w")
+
+diam.insert(0,'{:.1f}'.format(11.3))
+diam.config(state='disabled')
+diam.pack(side=LEFT)
+
+def setState_diam():
+    if CheckVar.get() == 1:
+        diam.config(state='normal')
+    elif CheckVar.get() == 0:
+        diam.delete(0, END)
+        diam.insert(0,11.3)
+        diam.config(state='disabled')
+C1.config(command=setState_diam)
+        
+f.pack(side=LEFT,padx=0,anchor="w")
 f0.pack(side=TOP)
 
 f0 = Frame(win)
 
 vars_opt = []
 fopt = LabelFrame(f0,text='OPTIONS (T [mm])')
+ToolTip(fopt, msg="You can put arbitral values\n"+\
+        "to estimate your sample thickness/weight")
 for i in range(2):
     opt = Entry(fopt, width=7)
     vars_opt.append(opt)
@@ -74,7 +107,9 @@ fopt.pack(side=RIGHT)
 
     
 var_calc = IntVar()
-f = LabelFrame(f0,text='TYPE')
+f = LabelFrame(f0,text='CALC. TYPE')
+ToolTip(f, msg="T: thickness of the sample (solution, foil)\n"+\
+                "W: weight of the sample (powder)")
 CALCTYPE = ['T [mm]','W[mg]']
 _rbs = []
 for i in range(2):
@@ -88,11 +123,20 @@ def setLabel():
     txt = 'OPTIONS (T [mm])'*(var_calc.get()==0)+'OPTIONS (W [mg])'*(var_calc.get()==1)
     fopt.configure(text=txt)
     if var_calc.get()==1:
-        d.delete(0, END)
-        d.insert(0,1.0)
-        d.config(state='disabled')
+        C1.select()
+        diam.config(state='normal')
     elif var_calc.get()==0:
-        d.config(state='normal')
+        C1.deselect()
+        diam.delete(0, END)
+        diam.insert(0,11.3)
+        diam.config(state='disabled')
+    
+    # if var_calc.get()==1:
+    #     d.delete(0, END)
+    #     d.insert(0,1.0)
+    #     d.config(state='disabled')
+    # elif var_calc.get()==0:
+    #     d.config(state='normal')
 
 for _rb in _rbs:
     _rb.configure(command=setLabel)
@@ -156,6 +200,7 @@ f0.pack(side=TOP)
     
 f0 = LabelFrame(win,text='RESULTS')
 text = Text(f0,width=55,height=12,font=('Arial 12'))
+
 text.pack(side=TOP)
 f0.pack(side=BOTTOM)
 
@@ -178,8 +223,9 @@ def do_popup(event):
         rclickmenu.tk_popup(event.x_root, event.y_root)
     finally:
         rclickmenu.grab_release()
-  
+
 text.bind("<Button-2>", do_popup)
+ToolTip(text, msg="You can save the result usig 'right click->Save'")
 
 def victreen(engs,coeffs,e0):
     Eb= e0/2.5
@@ -222,13 +268,17 @@ def calc():
         'EDGE': 0,
     ####### DENSITY g/cm^3 #######
         'DENS': 1.0,
+    ####### DIAMETER [cm] #######
+        'DIAM': 1.0,
     ####### OPTIONS #######
         'OPTIONS': [],
     }
     try:
-        print (d.get())
+        # print (d.get())
         INPUT['DENS'] = float(d.get())
         INPUT['EDGE'] = var_edge.get()
+        INPUT['DIAM'] = float(diam.get())/10
+        print (INPUT['DIAM'])
         for i in range(ELMAX):
             if val_cbs[i].get():
                 el = entry_elms[i].get().rstrip().replace(' ','').upper()
@@ -299,6 +349,9 @@ def calc():
             arrSTRINGS.append('{:^60s}'.format(">>>>>"*4+'  CONDITIONS  '+"<<<<<"*4))
             arrSTRINGS.append('{:<60s}'.format("     * COMPOSITION: "+_txt[:-2]))
             arrSTRINGS.append('{:<60s}'.format("     * DENSITY [g/cm^3]: "+str(INPUT['DENS'])))
+            arrSTRINGS.append('{:<60s}'.format("     * DIAMETER [mm]/AREA [cm^2]: "+\
+                                               "{:.1f}".format(INPUT['DIAM']*10)+' / '+\
+                                               "{:.1f}".format((INPUT['DIAM']/2)**2*np.pi)))
             arrSTRINGS.append('{:<60s}'.format("     * ABSORBER, EDGE: "+INPUT['ABS']+', '+edges[INPUT['EDGE']]+'\n'))
             arrSTRINGS.append('{:^60s}'.format("#"*21+"  RESULTS  "+"#"*25))
             _txt = ''
@@ -307,13 +360,16 @@ def calc():
             arrSTRINGS.append('{:^60s}'.format(_txt))
             power = (var_calc.get()==0)*1 +(var_calc.get()==1)*3
             ####### Hight ut = 4 ######
+
             T1 = 4.0/(xabs*INPUT['DENS'])
             low_ut = (bg*INPUT['DENS'])*T1
             high_ut = 4.0
             Delta = high_ut - low_ut
 
             _txt = ''
-            for x in [low_ut, high_ut, Delta, T1*10**power]:
+            result = (T1*10**power)*(var_calc.get()==0) + \
+                (T1*10**power)*(INPUT['DENS']*(INPUT['DIAM']/2)**2*np.pi)*(var_calc.get()==1)
+            for x in [low_ut, high_ut, Delta, result]:
                 _txt += '{:^15.3f}'.format(x)
             arrSTRINGS.append('{:^60s}'.format(_txt))
 
@@ -324,7 +380,9 @@ def calc():
             Delta = high_ut - low_ut
 
             _txt = ''
-            for x in [low_ut, high_ut, Delta, T1*10**power]:
+            result = (T1*10**power)*(var_calc.get()==0) + \
+                (T1*10**power)*(INPUT['DENS']*(INPUT['DIAM']/2)**2*np.pi)*(var_calc.get()==1)
+            for x in [low_ut, high_ut, Delta, result]:
                 _txt += '{:^15.3f}'.format(x)
             arrSTRINGS.append('{:^60s}'.format(_txt))
 
@@ -335,7 +393,9 @@ def calc():
             high_ut = xabs*INPUT['DENS']*T1
 
             _txt = ''
-            for x in [low_ut, high_ut, Delta, T1*10**power]:
+            result = (T1*10**power)*(var_calc.get()==0) + \
+                (T1*10**power)*(INPUT['DENS']*(INPUT['DIAM']/2)**2*np.pi)*(var_calc.get()==1)
+            for x in [low_ut, high_ut, Delta, result]:
                 _txt += '{:^15.3f}'.format(x)
             arrSTRINGS.append('{:^60s}'.format(_txt))
 
@@ -344,11 +404,17 @@ def calc():
             if len(INPUT['OPTIONS']) > 0:
                 for x in INPUT['OPTIONS']:
 
-                    T1 = x/10**power
+                    if var_calc.get()==0:
+                        T1 = x/10**power
+                    elif var_calc.get()==1:
+                        T1 = x/10**power/INPUT['DENS']/((INPUT['DIAM']/2)**2*np.pi)
+                    
                     low_ut = (bg*INPUT['DENS'])*T1
-                    high_ut = xabs*INPUT['DENS']*T1
+                    high_ut = (xabs*INPUT['DENS'])*T1
                     Delta = high_ut - low_ut
                     _txt = ''
+                    result = (T1*10**power)*(var_calc.get()==0) + \
+                        (T1*10**power)*(INPUT['DENS']*(INPUT['DIAM']/2)**2*np.pi)*(var_calc.get()==1)
                     for _x in [low_ut, high_ut, Delta, x]:
                         _txt += '{:^15.3f}'.format(_x)
                     arrSTRINGS.append('{:^60s}'.format(_txt))
